@@ -1,17 +1,29 @@
-name: Enforce source branch
+
+# org-policies/.github/workflows/main_merge_policy.yml
+name: Main merge policy (hotfix/release only)
+
 on:
   workflow_call:
     inputs:
-      target:
-        required: true
+      target_branch:
+        required: false
         type: string
+        default: main
+
 jobs:
-  validate:
+  validate-source-branch:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          if [[ "${{ github.event.pull_request.base.ref }}" == "${{ inputs.target }}" ]] && 
-             [[ ! "${{ github.head_ref }}" =~ ^(hotfix/|release/) ]]; then
-            echo "❌ source branch invalid"
+      - name: Validate that PR source is hotfix/ or release/
+        run: |
+          # Validar solo si la PR apunta al target_branch
+          if [ "${{ inputs.target_branch }}" != "${{ github.event.pull_request.base.ref }}" ]; then
+            echo "Skipping: base is ${{ github.event.pull_request.base.ref }}"
+            exit 0
+          fi
+          SRC="${{ github.head_ref }}"
+          echo "Source: $SRC → Base: ${{ github.event.pull_request.base.ref }}"
+          if [[ ! "$SRC" =~ ^(hotfix/|release/) ]]; then
+            echo "❌ source branch must start with 'hotfix/' or 'release/'"
             exit 1
           fi
