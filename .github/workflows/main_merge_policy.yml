@@ -1,0 +1,17 @@
+name: Enforce source branch
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ github.event.pull_request.base.ref }}" == "${{ inputs.target }}" ]] && 
+             [[ ! "${{ github.head_ref }}" =~ ^(hotfix/|release/) ]]; then
+            echo "❌ source branch invalid"
+            exit 1
+          fi
