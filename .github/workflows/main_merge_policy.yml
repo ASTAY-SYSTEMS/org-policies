@@ -1,24 +1,24 @@
 
-# org-policies/.github/workflows/main_merge_policy.yml
 name: Main merge policy (hotfix/release only)
 
 on:
-  workflow_call:
-    inputs:
-      target_branch:
-        required: false
-        type: string
-        default: main
+  pull_request:
+    branches: [ main ]         # Ejecuta en PRs hacia main
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  workflow_call:               # Lo mantienes reusable si otros repos quieren invocarlo
 
 jobs:
   validate-source-branch:
     runs-on: ubuntu-latest
+    # Evita que se ejecute en PRs del propio repo "org-policies" (host), si no deseas verlo allí
+    if: ${{ github.repository != 'YOUR_ORG/org-policies' }}
     steps:
       - name: Validate that PR source is hotfix/ or release/
         run: |
-          # Validar solo si la PR apunta al target_branch
-          if [ "${{ inputs.target_branch }}" != "${{ github.event.pull_request.base.ref }}" ]; then
-            echo "Skipping: base is ${{ github.event.pull_request.base.ref }}"
+          # Validar solo si la PR apunta al target_branch (cuando se invoca como reusable pasas 'target_branch')
+          TARGET="${{ inputs.target_branch || 'main' }}"
+          if [ "$TARGET" != "${{ github.event.pull_request.base.ref }}" ]; then
+            echo "Skipping: base is ${{ github.event.pull_request.base.ref }}; target is $TARGET"
             exit 0
           fi
           SRC="${{ github.head_ref }}"
