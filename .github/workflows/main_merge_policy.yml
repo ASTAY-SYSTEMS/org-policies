@@ -11,7 +11,7 @@ jobs:
   validate-source-branch:
     runs-on: ubuntu-latest
     # Evita que se ejecute en PRs del propio repo "org-policies" (host), si no deseas verlo allí
-    if: ${{ github.repository != 'YOUR_ORG/org-policies' }}
+    if: ${{ github.repository != 'ASTAY-SYSTEMS/org-policies' }}
     steps:
       - name: Validate that PR source is hotfix/ or release/
         run: |
