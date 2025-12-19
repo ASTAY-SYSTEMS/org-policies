@@ -1,0 +1,28 @@
+# secret para la integracion con la herramienta:  odt_ig6zKyXu_IGOL0HItWfp8n2alZBjjL7nlpOMbzvwQ
+name: "SCA - OWASP Dependency-Track"
+description: "Ejecuta análisis SCA con OWASP Dependency-Track"
+inputs:
+  api_url:
+    description: "Dependency-Track API URL"
+    required: true
+
+  api_key:
+    description: "Dependency-Track API Key"
+    required: true
+
+  sbom_path:
+    description: "Path to SBOM file"
+    required: true
+    default: "sbom.json"
+runs:
+  using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
+  steps:
+    - name: Run OWASP Dependency-Track Analysis
+      shell: bash
+      run: |
+        curl -X POST "${{ inputs.api_url }}/api/v1/scan" \
+          -H "X-API-Key: ${{ inputs.api_key }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "sbom": "'"$(cat ${{ inputs.sbom_path }})"'"
+          }'
