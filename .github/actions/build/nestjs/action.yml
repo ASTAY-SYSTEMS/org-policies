@@ -51,7 +51,7 @@ runs:
     - name: Generate SBOM
       if: ${{ inputs.SBoom == 'true' }}
       shell: bash      
-      run: npx cyclonedx-npm --output-file sbom.json
+      run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json
 
 
     - name: Upload SBOM
