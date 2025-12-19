@@ -16,9 +16,12 @@ jobs:
       - name: Validate that PR source is hotfix/ or release/
         run: |
           # Validar solo si la PR apunta al target_branch (cuando se invoca como reusable pasas 'target_branch')
+          # si el workflow fue invocado como reusable: inputs.target_branch. TARGET debe ser igual a main 
           TARGET="${{ inputs.target_branch || 'main' }}"
+          # github.event.pull_request.base.ref: Indica a que rama destino apunta el pull request. (debe ser main) 
           if [ "$TARGET" != "${{ github.event.pull_request.base.ref }}" ]; then
             echo "Skipping: base is ${{ github.event.pull_request.base.ref }}; target is $TARGET"
+            # si no es main entonces simplemente lo deja pasar, no arroja error.
             exit 0
           fi
           SRC="${{ github.head_ref }}"
