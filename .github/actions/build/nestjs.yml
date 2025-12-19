@@ -1,49 +1,44 @@
-name: NestJS Build
-on:
-  workflow_call:
-    inputs:
-      node_version:
-        description: "Node.js version"
-        required: false
-        type: string
-        default: "20"
+name: "NestJS Build"
+description: "Instala dependencias, ejecuta tests opcionales y compila una app NestJS"
 
-      working_directory:
-        description: "Subfolder where NestJS app lives"
-        required: false
-        type: string
-        default: "."
+inputs:
+  node_version:
+    description: "Node.js version"
+    required: false
+    default: "20"
 
-      run_tests:
-        description: "Run tests"
-        required: false
-        type: boolean
-        default: false
+  working_directory:
+    description: "Directorio donde vive la app NestJS"
+    required: false
+    default: "."
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+  run_tests:
+    description: "Run tests (true / false)"
+    required: false
+    default: "false"
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+runs:
+  using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node_version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ inputs.node_version }}
-          cache: npm
-          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+      working-directory: ${{ inputs.working_directory }}
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: ${{ inputs.working_directory }}
+    - name: Run tests
+      if: ${{ inputs.run_tests == 'true' }}
+      shell: bash
+      run: npm test
+      working-directory: ${{ inputs.working_directory }}
 
-      - name: Run tests
-        if: ${{ inputs.run_tests }}
-        run: npm test
-        working-directory: ${{ inputs.working_directory }}
-
-      - name: Build NestJS
-        run: npm run build
-        working-directory: ${{ inputs.working_directory }}
+    - name: Build NestJS
+      shell: bash
+      run: npm run build
+      working-directory: ${{ inputs.working_directory }}

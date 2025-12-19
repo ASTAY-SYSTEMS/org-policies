@@ -1,55 +1,50 @@
-name: .NET Build
-on:
-  workflow_call:
-    inputs:
-      dotnet_version:
-        description: ".NET SDK version"
-        required: false
-        type: string
-        default: "8.0.x"
+name: ".NET Build"
+description: "Restore, build y test opcional de proyectos .NET"
+inputs:
+  dotnet_version:
+    description: ".NET SDK version"
+    required: false
+    default: "8.0.x"
 
-      solution_path:
-        description: "Path to .sln or .csproj"
-        required: false
-        type: string
-        default: "."
+  solution_path:
+    description: "Path to .sln or .csproj"
+    required: false
+    default: "."
 
-      run_tests:
-        description: "Run tests"
-        required: false
-        type: boolean
-        default: false
+  run_tests:
+    description: "Run tests"
+    required: false
+    default: "false"
 
-      configuration:
-        description: "Build configuration"
-        required: false
-        type: string
-        default: "Release"
+  configuration:
+    description: "Build configuration"
+    required: false
+    default: "Release"
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+runs:
+  using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet_version }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Restore
+      shell: bash
+      run: dotnet restore ${{ inputs.solution_path }}
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ inputs.dotnet_version }}
+    - name: Build
+      shell: bash
+      run: |
+        dotnet build ${{ inputs.solution_path }} \
+          --configuration ${{ inputs.configuration }} \
+          --no-restore
 
-      - name: Restore
-        run: dotnet restore ${{ inputs.solution_path }}
-
-      - name: Build
-        run: dotnet build ${{ inputs.solution_path }} \
-              --configuration ${{ inputs.configuration }} \
-              --no-restore
-
-      - name: Test
-        if: ${{ inputs.run_tests }}
-        run: dotnet test ${{ inputs.solution_path }} \
-              --configuration ${{ inputs.configuration }} \
-              --no-build \
-              --verbosity normal
+    - name: Test
+      if: ${{ inputs.run_tests == 'true' }}
+      shell: bash
+      run: |
+        dotnet test ${{ inputs.solution_path }} \
+          --configuration ${{ inputs.configuration }} \
+          --no-build \
+          --verbosity normal
