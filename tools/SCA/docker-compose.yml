@@ -10,7 +10,10 @@ services:
       - ALPINE_DATABASE_DRIVER=org.postgresql.Driver
       - ALPINE_DATABASE_USERNAME=dtrack
       - ALPINE_DATABASE_PASSWORD=dtrack
+      # 🔐 Seguridad
+      - ALPINE_SECURITY_ADMIN_PASSWORD=Admin123!
       - ALPINE_TELEMETRY_ENABLED=false
+
     depends_on:
       - postgres
     ports:
@@ -21,6 +24,8 @@ services:
     container_name: dtrack-frontend
     depends_on:
       - dtrack-apiserver
+    environment:
+      - API_BASE_URL=http://localhost:6061  
     ports:
       - "6060:8080"
 
