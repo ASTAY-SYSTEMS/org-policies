@@ -3,30 +3,48 @@ name: Main merge policy (hotfix/release only)
 
 on:
   pull_request:
-    branches: [ main ]         # Ejecuta en PRs hacia main
+    branches: [ main ]
     types: [ opened, synchronize, reopened, ready_for_review ]
-  workflow_call:               # Lo mantienes reusable si otros repos quieren invocarlo
+
+  workflow_call:
+    inputs:
+      target_branch:
+        description: "Rama destino a validar cuando se invoca como reusable"
+        required: false
+        type: string
+        default: "main"
 
 jobs:
   validate-source-branch:
     runs-on: ubuntu-latest
-    # Evita que se ejecute en PRs del propio repo "org-policies" (host), si no deseas verlo allí
     if: ${{ github.repository != 'ASTAY-SYSTEMS/org-policies' }}
+
+    # Resolvemos TARGET desde env usando expresiones (si hay input úsalo, si no 'main')
+    env:
+      TARGET: ${{ inputs.target_branch || 'main' }}
+
     steps:
       - name: Validate that PR source is hotfix/ or release/
         run: |
-          # Validar solo si la PR apunta al target_branch (cuando se invoca como reusable pasas 'target_branch')
-          # si el workflow fue invocado como reusable: inputs.target_branch. TARGET debe ser igual a main 
-          TARGET="${{ inputs.target_branch || 'main' }}"
-          # github.event.pull_request.base.ref: Indica a que rama destino apunta el pull request. (debe ser main) 
-          if [ "$TARGET" != "${{ github.event.pull_request.base.ref }}" ]; then
-            echo "Skipping: base is ${{ github.event.pull_request.base.ref }}; target is $TARGET"
-            # si no es main entonces simplemente lo deja pasar, no arroja error.
+          # Base (rama destino del PR)
+          BASE="${{ github.event.pull_request.base.ref }}"
+          echo "TARGET (expected): $TARGET"
+          echo "BASE (actual): $BASE"
+
+          # Si la PR no apunta a TARGET, no bloqueamos (lo dejamos pasar)
+          if [ "$TARGET" != "$BASE" ]; then
+            echo "Skipping: base is $BASE; target is $TARGET"
             exit 0
           fi
+
+          # Rama origen del PR
           SRC="${{ github.head_ref }}"
-          echo "Source: $SRC → Base: ${{ github.event.pull_request.base.ref }}"
+          echo "Source: $SRC → Base: $BASE"
+
+          # Validación de prefijo
           if [[ ! "$SRC" =~ ^(hotfix/|release/) ]]; then
             echo "❌ source branch must start with 'hotfix/' or 'release/'"
             exit 1
           fi
+
+          echo "✅ source branch cumple política (hotfix/ o release/)"
