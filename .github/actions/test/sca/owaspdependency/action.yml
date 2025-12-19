@@ -14,15 +14,25 @@ inputs:
     description: "Path to SBOM file"
     required: true
     default: "sbom.json"
+  project_name:
+    description: "Dependency-Track project name"
+    required: true
+  project_version:
+    description: "Dependency-Track project version"  
+    required: true
+    default: "latest"
 runs:
   using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
   steps:
-    - name: Run OWASP Dependency-Track Analysis
+    - name: Upload SBOM to Dependency-Track
       shell: bash
       run: |
-        curl -X POST "${{ inputs.api_url }}/api/v1/scan" \
+        echo "Uploading SBOM to Dependency-Track..."
+        curl -X POST "${{ inputs.api_url }}/api/v1/bom" \
           -H "X-API-Key: ${{ inputs.api_key }}" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "sbom": "'"$(cat ${{ inputs.sbom_path }})"'"
-          }'
+          -F "projectName=${{ inputs.project_name }}" \
+          -F "projectVersion=${{ inputs.project_version }}" \
+          -F "autoCreate=true" \
+          -F "bom=@${{ inputs.sbom_path }}"
+    
+    
