@@ -69,6 +69,7 @@ runs:
           -Dsonar.projectName="${{ inputs.project_name }}" \
           -Dsonar.sources="${{ inputs.sonar_sources }}" \
           -Dsonar.projectBaseDir="/usr/src" \
+          -Dsonar.working.directory="/usr/src/.scannerwork" \
           ${{ inputs.sonar_extra_args }}
 
         # Validar que se generó report-task.txt en el directorio donde se ejecutó el análisis
