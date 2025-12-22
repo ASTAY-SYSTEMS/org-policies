@@ -49,6 +49,7 @@ runs:
           -e SONAR_HOST_URL="$SONAR_HOST_URL" \
           -e SONAR_TOKEN="$SONAR_TOKEN" \
           -v "$PWD":/usr/src \
+          -v "$PWD/.scannerwork":/usr/src/.scannerwork \
           "${{ inputs.scanner_image }}" \
           -Dsonar.projectKey="${{ inputs.project_key }}" \
           -Dsonar.projectName="${{ inputs.project_name }}" \
