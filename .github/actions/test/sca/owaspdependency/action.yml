@@ -22,6 +22,11 @@ inputs:
 runs:
   using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
   steps:
+    
+    - name: Preparar directorio de SBOM
+      shell: bash
+      run: |
+        mkdir -p "$(dirname "${{ inputs.sbom_path }}")"
 
     - name: Generar SBOM con Anchore SBOM Action
       uses: anchore/sbom-action@v0
