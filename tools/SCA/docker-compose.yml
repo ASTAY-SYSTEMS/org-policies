@@ -1,18 +1,37 @@
+
 version: "3.8"
 
 services:
+  # backend
   dtrack-apiserver:
     image: dependencytrack/apiserver:latest
     container_name: dtrack-apiserver
     environment:
+      # Base de datos
       - ALPINE_DATABASE_MODE=external
       - ALPINE_DATABASE_URL=jdbc:postgresql://postgres:5432/dtrack
       - ALPINE_DATABASE_DRIVER=org.postgresql.Driver
       - ALPINE_DATABASE_USERNAME=dtrack
       - ALPINE_DATABASE_PASSWORD=dtrack
-      # 🔐 Seguridad
-      #- ALPINE_SECURITY_ADMIN_PASSWORD=Admin123!
+
+      # Telemetría (opcional)
       - ALPINE_TELEMETRY_ENABLED=false
+
+      # ===== CORS =====
+      # Habilita CORS en respuestas del API
+      - ALPINE_CORS_ENABLED=true
+      # Permite el origen del frontend (puedes precisar el origen exacto)
+      - ALPINE_CORS_ALLOW_ORIGIN=http://3.146.83.60:6060
+      # Métodos permitidos (IMPORTANTE: en formato separado por comas)
+      - ALPINE_CORS_ALLOW_METHODS=GET,POST,PUT,DELETE,OPTIONS
+      # Cabeceras permitidas (ajusta según tus necesidades)
+      - ALPINE_CORS_ALLOW_HEADERS=Origin,Content-Type,Authorization,X-Requested-With,Content-Length,Accept,X-Api-Key,X-Total-Count
+      # Cabeceras expuestas (opcional)
+      - ALPINE_CORS_EXPOSE_HEADERS=Origin,Content-Type,Authorization,X-Requested-With,Content-Length,Accept,X-Api-Key,X-Total-Count
+      # Credenciales (cookies/autorización) si las necesitas
+      - ALPINE_CORS_ALLOW_CREDENTIALS=true
+      # Tiempo de cacheo del preflight OPTIONS (segundos)
+      - ALPINE_CORS_MAX_AGE=3600
 
     depends_on:
       - postgres
@@ -25,10 +44,12 @@ services:
     depends_on:
       - dtrack-apiserver
     environment:
-      - API_BASE_URL=http://dtrack-apiserver:8080  
+      # Apunta al API
+      - API_BASE_URL=http://3.146.83.60:6061
     ports:
       - "6060:8080"
 
+  # base de datos
   postgres:
     image: postgres:15
     container_name: dtrack-postgres
