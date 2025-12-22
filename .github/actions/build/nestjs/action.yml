@@ -17,10 +17,10 @@ inputs:
     required: false
     default: "false"
   
-  SBoom: 
-    description: "Prueba de conflicto"
-    required: false
-    default: "false"
+  #SBoom: 
+  #  description: "Prueba de conflicto"
+  #  required: false
+  #  default: "false"
 
 runs:
   using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
@@ -48,15 +48,15 @@ runs:
       run: npm run build
       working-directory: ${{ inputs.working_directory }}
     
-    - name: Generate SBOM
-      if: ${{ inputs.SBoom == 'true' }}
-      shell: bash      
-      run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json
+  #  - name: Generate SBOM
+  #    if: ${{ inputs.SBoom == 'true' }}
+  #    shell: bash      
+  #    run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json
 
 
-    - name: Upload SBOM
-      if: ${{ inputs.SBoom == 'true' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: sbom
-        path: sbom.json
+  #  - name: Upload SBOM
+  #    if: ${{ inputs.SBoom == 'true' }}
+  #    uses: actions/upload-artifact@v4
+  #    with:
+  #      name: sbom
+  #      path: sbom.json

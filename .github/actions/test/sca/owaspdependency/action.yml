@@ -5,11 +5,9 @@ inputs:
   api_url:
     description: "Dependency-Track API URL"
     required: true
-
   api_key:
     description: "Dependency-Track API Key"
     required: true
-
   sbom_path:
     description: "Path to SBOM file"
     required: true
@@ -24,6 +22,16 @@ inputs:
 runs:
   using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
   steps:
+    - name: checkout source
+      uses: actions/checkout@v4
+    
+    - name: Generar SBOM con Anchore SBOM Action
+      uses: anchore/sbom-action@v0
+      with:
+        path: .
+        format: cyclonedx-json
+        output-file: ${{ inputs.sbom_path }}
+
     - name: Upload SBOM to Dependency-Track
       shell: bash
       run: |

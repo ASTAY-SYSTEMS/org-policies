@@ -11,7 +11,7 @@ services:
       - ALPINE_DATABASE_USERNAME=dtrack
       - ALPINE_DATABASE_PASSWORD=dtrack
       # 🔐 Seguridad
-      - ALPINE_SECURITY_ADMIN_PASSWORD=Admin123!
+      #- ALPINE_SECURITY_ADMIN_PASSWORD=Admin123!
       - ALPINE_TELEMETRY_ENABLED=false
 
     depends_on:
@@ -25,7 +25,7 @@ services:
     depends_on:
       - dtrack-apiserver
     environment:
-      - API_BASE_URL=http://localhost:6061  
+      - API_BASE_URL=http://dtrack-apiserver:8080  
     ports:
       - "6060:8080"
 
