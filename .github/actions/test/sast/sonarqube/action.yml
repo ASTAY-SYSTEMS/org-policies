@@ -50,6 +50,7 @@ runs:
         echo "STATUS:"
         cat sonar_status.json
 
+
     - name: Ejecutar SonarScanner en Docker
       shell: bash
       working-directory: ${{ inputs.project_base_dir }}
@@ -59,33 +60,34 @@ runs:
       run: |
         set -euo pipefail
 
-        echo "Ejecutando SonarScanner dentro del contenedor..."
+        # 1) Prepara .scannerwork en el host con permisos amplios
+        mkdir -p ".scannerwork"
+        chmod 0777 ".scannerwork"
+
+        echo "Ejecutando SonarScanner dentro del contenedor (mismo UID/GID que el runner)..."
         docker run --rm \
+          --user "$(id -u):$(id -g)" \               # << clave: ejecutar con el mismo usuario del runner
           -e SONAR_HOST_URL="${SONAR_HOST_URL}" \
           -e SONAR_TOKEN="${SONAR_TOKEN}" \
-          -v "$PWD":/usr/src \
+          -v "$PWD":/usr/src \                        # código
+          -v "$PWD/.scannerwork":/usr/src/.scannerwork \  # metadata .scannerwork en el volumen
           "${{ inputs.scanner_image }}" \
           -Dsonar.projectKey="${{ inputs.project_key }}" \
           -Dsonar.projectName="${{ inputs.project_name }}" \
           -Dsonar.sources="${{ inputs.sonar_sources }}" \
           -Dsonar.projectBaseDir="/usr/src" \
-          -Dsonar.working.directory="/usr/src/.scannerwork" \
           ${{ inputs.sonar_extra_args }}
 
-        # Validar que se generó report-task.txt en el directorio donde se ejecutó el análisis
-        if [ ! -f ".scannerwork/report-task.txt" ]; then
+        # 2) Verifica y muestra el report-task (ya en el bind-mount)
+        if [ -f ".scannerwork/report-task.txt" ]; then
+          echo "==== report-task.txt ===="
+          cat ".scannerwork/report-task.txt"
+        else
           echo "ERROR: No se generó .scannerwork/report-task.txt en $PWD"
-          echo "Revisa:"
-          echo " - URL/Token válidos (SONAR_HOST_URL / SONAR_TOKEN)"
-          echo " - projectKey / projectName correctos"
-          echo " - sonar.sources apunta a código existente"
           exit 1
         fi
 
-        echo "Contenido de .scannerwork/report-task.txt:"
-        cat ".scannerwork/report-task.txt" || true
-
-        # Copiar el archivo a la raíz del workspace para que el Quality Gate lo encuentre
+        # 3) Copia a la raíz del workspace para el Quality Gate
         mkdir -p "$GITHUB_WORKSPACE/.scannerwork"
         cp -f ".scannerwork/report-task.txt" "$GITHUB_WORKSPACE/.scannerwork/report-task.txt"
 
