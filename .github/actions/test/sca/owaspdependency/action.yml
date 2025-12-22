@@ -35,11 +35,19 @@ runs:
         format: cyclonedx-json
         output-file: ${{ inputs.sbom_path }}
 
+    
+    - name: Carga SBOM al artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: cyclonedx-sbom
+        path: ${{ inputs.sbom_path }}
+
+      # 4️⃣ Subir SBOM a Dependency-Track
     - name: Upload SBOM to Dependency-Track
       shell: bash
       run: |
         echo "Uploading SBOM to Dependency-Track..."
-        curl -X POST "${{ inputs.api_url }}/api/v1/bom" \
+        curl --fail -X POST "${{ inputs.api_url }}/api/v1/bom" \
           -H "X-API-Key: ${{ inputs.api_key }}" \
           -F "projectName=${{ inputs.project_name }}" \
           -F "projectVersion=${{ inputs.project_version }}" \
