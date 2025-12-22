@@ -29,7 +29,7 @@ inputs:
   scanner_image:
     description: "Imagen del SonarScanner CLI"
     required: false
-    default: "sonarsource/sonar-scanner-cli:5.0.1"
+    default: "sonarsource/sonar-scanner-cli:latest"
 
 runs:
   using: "composite"
