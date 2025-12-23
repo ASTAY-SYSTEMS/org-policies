@@ -1,0 +1,74 @@
+name: "Deploy Dev - AWS Docker"
+description: "Despliega la aplicación Docker en el entorno de desarrollo de AWS"
+
+inputs: 
+  aws_secret_access_key:
+    description: "AWS Secret Access Key"
+    required: true
+  image_name:
+    description: "Nombre de la imagen Docker a desplegar"
+    required: true 
+  target_file_name:
+    description: "Nombre del archivo destino en el servidor AWS"
+    required: true  
+  internal_port:
+    description: "Puerto interno del contenedor"
+    required: true
+  external_port:
+    description: "Puerto externo del contenedor"
+    required: true
+  host_target: 
+    description: "Host de destino donde se desplegara la solucion"
+    required: true
+  tag_image:
+    description: "Tag de la imagen Docker a desplegar"
+    required: false
+    default: "latest"
+  dockerfile_name:
+    description: "Ruta al Dockerfile"
+    required: false
+    default: "Dockerfile"
+  working-directory:
+    description: "Directorio de trabajo para el build de Docker"
+    required: false
+    default: "."
+  target_directory:
+    description: "Directorio destino en el servidor AWS"
+    required: false
+    default: "/tmp"  
+    
+runs:
+  using: "composite" # Indica que es una acción compuesta, osea que agrupa varios pasos (steps)
+  steps:
+    - name: Crear y Guardar Imagen Docker
+      shell: bash
+      run: |
+        docker build -f ${{ inputs.dockerfile_name }} -t ${{ inputs.image_name }}:{{ inputs.tag_image }} ${{ inputs.working-directory }}
+        docker save -o ${{ inputs.target_directory }}/${{ inputs.target_file_name }} ${{ inputs.image_name }}:${{ inputs.tag_image}}
+
+    - name: Desplegar Imagen en AWS por SSH
+      shell: bash
+      run: |
+        # 1. Guardar la clave privada desde el secret
+        echo "${{ inputs.aws_secret_access_key }}" | tr -d '\r' > ${{ inputs.target_directory }}/aws-key.pem
+        chmod 600 ${{ inputs.target_directory }}/aws-key.pem
+
+        # 2. Obtener fecha actual en formato YYYYMMDD
+        FECHA=$(date +'%Y%m%d')          CARPETA="v_$FECHA"
+
+        # 3. Crear la carpeta en la instancia AWS
+        ssh -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ubuntu@${{ inputs.host_target }} "mkdir -p images/$CARPETA"
+        # 4. Copiar el archivo .tar a la instancia (StrictHostKeyChecking=no para evitar el prompt de confirmacion o verificacion del host)
+        scp -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ${{ inputs.target_directory }}/${{ inputs.target_file_name }} ubuntu@${{ inputs.host_target }}:images/$CARPETA/
+
+        # 5. Desplegar el contenedor en la instancia
+        ssh -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ubuntu@${{ inputs.host_target }} "
+          docker stop ${{ inputs.image_name }} || true &&
+          docker rm ${{ inputs.image_name }} || true &&
+          docker rmi ${{ inputs.image_name }}:${{ inputs.tag_image }} || true &&
+          docker load -i images/$CARPETA/${{ inputs.target_file_name }} &&
+          docker run -d --name ${{ inputs.image_name }} -p ${{ inputs.external_port }}:${{ inputs.internal_port }} ${{ inputs.image_name }}:${{inputs.tag_image}}" 
+
+        # 6. Eliminar la clave por seguridad
+        rm -f ${{ inputs.target_directory }}/aws-key.pem
+      
