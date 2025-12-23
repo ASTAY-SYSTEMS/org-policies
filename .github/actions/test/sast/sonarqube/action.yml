@@ -24,7 +24,7 @@ inputs:
     default: "."
 
   sonar_sources:
-    description: "Rutas de código fuente (ej: src)"
+    description: "Rutas de código fuente"
     required: false
     default: "."
 
@@ -44,13 +44,13 @@ runs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Preparar directorios de trabajo
+    - name: Preparar directorios Sonar
       shell: bash
       run: |
         mkdir -p .sonar .scannerwork
         chmod -R 777 .sonar .scannerwork
 
-    - name: Ejecutar SonarScanner en Docker
+    - name: Ejecutar SonarScanner (Docker)
       shell: bash
       working-directory: ${{ inputs.project_base_dir }}
       env:
@@ -64,16 +64,13 @@ runs:
           -e SONAR_TOKEN="$SONAR_TOKEN" \
           -e SONAR_USER_HOME="/usr/src/.sonar" \
           -v "$PWD":/usr/src \
+          -v "$PWD/.sonar":/usr/src/.sonar \
+          -v "$PWD/.scannerwork":/usr/src/.scannerwork \
           "${{ inputs.scanner_image }}" \
           -Dsonar.projectKey="${{ inputs.project_key }}" \
           -Dsonar.projectName="${{ inputs.project_name }}" \
           -Dsonar.sources="${{ inputs.sonar_sources }}" \
           -Dsonar.projectBaseDir="/usr/src" \
+          -Dsonar.qualitygate.wait=true \
+          -Dsonar.qualitygate.timeout=300 \
           ${{ inputs.sonar_extra_args }}
-
-    - name: Quality Gate
-      if: ${{ inputs.sonar_extra_args == '' }}
-      uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
-      env:
-        SONAR_TOKEN: ${{ inputs.sonar_token }}
-        SONAR_HOST_URL: ${{ inputs.sonar_host_url }}
