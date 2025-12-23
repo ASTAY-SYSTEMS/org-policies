@@ -75,7 +75,7 @@ runs:
           docker rm ${{ inputs.image_name }} || true &&
           docker rmi ${{ inputs.image_name }}:${{ inputs.tag_image }} || true &&
           docker load -i images/$CARPETA/${{ inputs.target_file_name }} &&
-          docker run -d --name ${{ inputs.image_name }} -p ${{ inputs.external_port }}:${{ inputs.internal_port }} --env-file ${{ inputs.env_file }} ${{ inputs.image_name }}:${{inputs.tag_image}}" 
+          docker run -d --name ${{ inputs.image_name }} -p ${{ inputs.external_port }}:${{ inputs.internal_port }} --env-file images/$CARPETA/${{ inputs.env_file }} ${{ inputs.image_name }}:${{inputs.tag_image}}" 
 
         # 7. Eliminar la clave por seguridad
         rm -f ${{ inputs.target_directory }}/aws-key.pem
