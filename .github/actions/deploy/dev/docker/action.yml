@@ -67,7 +67,7 @@ runs:
         scp -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ${{ inputs.target_directory }}/${{ inputs.target_file_name }} ubuntu@${{ inputs.host_target }}:images/$CARPETA/
 
         # 5. Copiar el archivo .env_file a la instancia (StrictHostKeyChecking=no para evitar el prompt de confirmacion o verificacion del host)
-        scp -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ${{ inputs.target_directory }}/${{ inputs.env_file }} ubuntu@${{ inputs.host_target }}:images/$CARPETA/
+        scp -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ${{ inputs.working-directory }}/${{ inputs.env_file }} ubuntu@${{ inputs.host_target }}:images/$CARPETA/
 
         # 6. Desplegar el contenedor en la instancia
         ssh -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ubuntu@${{ inputs.host_target }} "
