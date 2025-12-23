@@ -49,8 +49,7 @@ runs:
         curl -sS -f "${SONAR_HOST_URL}/api/system/status" | tee sonar_status.json
         echo "STATUS:"
         cat sonar_status.json
-
-
+   
     - name: Ejecutar SonarScanner en Docker
       shell: bash
       working-directory: ${{ inputs.project_base_dir }}
@@ -60,25 +59,25 @@ runs:
       run: |
         set -euo pipefail
 
-        # 1) Prepara .scannerwork en el host con permisos amplios
+        # Prepara .scannerwork en el host con permisos de escritura
         mkdir -p ".scannerwork"
         chmod 0777 ".scannerwork"
 
         echo "Ejecutando SonarScanner dentro del contenedor (mismo UID/GID que el runner)..."
         docker run --rm \
-          --user "$(id -u):$(id -g)" \               # << clave: ejecutar con el mismo usuario del runner
+          --user "$(id -u):$(id -g)" \
           -e SONAR_HOST_URL="${SONAR_HOST_URL}" \
           -e SONAR_TOKEN="${SONAR_TOKEN}" \
-          -v "$PWD":/usr/src \                        # código
-          -v "$PWD/.scannerwork":/usr/src/.scannerwork \  # metadata .scannerwork en el volumen
-          "${{ inputs.scanner_image }}" \
+          -v "$PWD":/usr/src \
+          -v "$PWD/.scannerwork":/usr/src/.scannerwork \
+          "sonarsource/sonar-scanner-cli:latest" \
           -Dsonar.projectKey="${{ inputs.project_key }}" \
           -Dsonar.projectName="${{ inputs.project_name }}" \
           -Dsonar.sources="${{ inputs.sonar_sources }}" \
           -Dsonar.projectBaseDir="/usr/src" \
           ${{ inputs.sonar_extra_args }}
 
-        # 2) Verifica y muestra el report-task (ya en el bind-mount)
+        # Verifica que el archivo del análisis exista en el bind-mount
         if [ -f ".scannerwork/report-task.txt" ]; then
           echo "==== report-task.txt ===="
           cat ".scannerwork/report-task.txt"
@@ -87,9 +86,10 @@ runs:
           exit 1
         fi
 
-        # 3) Copia a la raíz del workspace para el Quality Gate
+        # Copia a la raíz del workspace para que el Quality Gate lo encuentre
         mkdir -p "$GITHUB_WORKSPACE/.scannerwork"
         cp -f ".scannerwork/report-task.txt" "$GITHUB_WORKSPACE/.scannerwork/report-task.txt"
+
 
     - name: Quality Gate
       if: ${{ inputs.sonar_extra_args == '' }} # ejecuta siempre si no se sobreescribe el gating
