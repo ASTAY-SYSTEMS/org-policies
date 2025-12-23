@@ -62,10 +62,14 @@ runs:
 
         # 3. Crear la carpeta en la instancia AWS
         ssh -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ubuntu@${{ inputs.host_target }} "mkdir -p images/$CARPETA"
+        
         # 4. Copiar el archivo .tar a la instancia (StrictHostKeyChecking=no para evitar el prompt de confirmacion o verificacion del host)
         scp -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ${{ inputs.target_directory }}/${{ inputs.target_file_name }} ubuntu@${{ inputs.host_target }}:images/$CARPETA/
 
-        # 5. Desplegar el contenedor en la instancia
+        # 5. Copiar el archivo .env_file a la instancia (StrictHostKeyChecking=no para evitar el prompt de confirmacion o verificacion del host)
+        scp -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ${{ inputs.target_directory }}/${{ inputs.env_file }} ubuntu@${{ inputs.host_target }}:images/$CARPETA/
+
+        # 6. Desplegar el contenedor en la instancia
         ssh -o StrictHostKeyChecking=no -i ${{ inputs.target_directory }}/aws-key.pem ubuntu@${{ inputs.host_target }} "
           docker stop ${{ inputs.image_name }} || true &&
           docker rm ${{ inputs.image_name }} || true &&
@@ -73,6 +77,6 @@ runs:
           docker load -i images/$CARPETA/${{ inputs.target_file_name }} &&
           docker run -d --name ${{ inputs.image_name }} -p ${{ inputs.external_port }}:${{ inputs.internal_port }} --env-file ${{ inputs.env_file }} ${{ inputs.image_name }}:${{inputs.tag_image}}" 
 
-        # 6. Eliminar la clave por seguridad
+        # 7. Eliminar la clave por seguridad
         rm -f ${{ inputs.target_directory }}/aws-key.pem
       
