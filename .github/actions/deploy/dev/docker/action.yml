@@ -27,7 +27,7 @@ inputs:
   dockerfile_name:
     description: "Ruta al Dockerfile"
     required: false
-    default: "Dockerfile"
+    default: "dockerfile"
   working-directory:
     description: "Directorio de trabajo para el build de Docker"
     required: false
