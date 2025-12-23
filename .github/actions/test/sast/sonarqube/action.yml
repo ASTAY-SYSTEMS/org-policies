@@ -1,34 +1,40 @@
-
 name: "SAST - SonarQube (Docker Scanner)"
-description: "Ejecuta análisis SAST con SonarQube usando sonarsource/sonar-scanner-cli en Docker"
+description: "Ejecuta análisis SAST con SonarQube usando sonar-scanner-cli en Docker"
 
 inputs:
   sonar_host_url:
-    description: "URL de SonarQube (ej. http://localhost:9000)"
+    description: "URL de SonarQube"
     required: true
+
   sonar_token:
     description: "Token de SonarQube"
     required: true
+
   project_key:
-    description: "SonarQube project key (único en la instancia)"
+    description: "SonarQube project key"
     required: true
+
   project_name:
-    description: "SonarQube project name (descriptivo)"
+    description: "SonarQube project name"
     required: true
+
   project_base_dir:
-    description: "Directorio base a analizar (montado en /usr/src)"
+    description: "Directorio base a analizar"
     required: false
     default: "."
+
   sonar_sources:
-    description: "Ruta(s) de fuentes relativas a project_base_dir (ej. src)"
+    description: "Rutas de código fuente (ej: src)"
     required: false
     default: "."
+
   sonar_extra_args:
-    description: "Argumentos extra para sonar-scanner (línea de comandos)"
+    description: "Argumentos extra para sonar-scanner"
     required: false
     default: ""
+
   scanner_image:
-    description: "Imagen del SonarScanner CLI"
+    description: "Imagen de SonarScanner"
     required: false
     default: "sonarsource/sonar-scanner-cli:latest"
 
@@ -38,18 +44,12 @@ runs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    # (Opcional pero recomendado) Verificar que SonarQube responde
-    - name: Ping SonarQube
+    - name: Preparar directorios de trabajo
       shell: bash
-      env:
-        SONAR_HOST_URL: ${{ inputs.sonar_host_url }}
       run: |
-        set -euo pipefail
-        echo "Verificando SonarQube en ${SONAR_HOST_URL}..."
-        curl -sS -f "${SONAR_HOST_URL}/api/system/status" | tee sonar_status.json
-        echo "STATUS:"
-        cat sonar_status.json
-   
+        mkdir -p .sonar .scannerwork
+        chmod -R 777 .sonar .scannerwork
+
     - name: Ejecutar SonarScanner en Docker
       shell: bash
       working-directory: ${{ inputs.project_base_dir }}
@@ -59,40 +59,20 @@ runs:
       run: |
         set -euo pipefail
 
-        # Prepara .scannerwork en el host con permisos de escritura
-        mkdir -p ".scannerwork"
-        chmod 0777 ".scannerwork"
-
-        echo "Ejecutando SonarScanner dentro del contenedor (mismo UID/GID que el runner)..."
         docker run --rm \
-          --user "$(id -u):$(id -g)" \
-          -e SONAR_HOST_URL="${SONAR_HOST_URL}" \
-          -e SONAR_TOKEN="${SONAR_TOKEN}" \
+          -e SONAR_HOST_URL="$SONAR_HOST_URL" \
+          -e SONAR_TOKEN="$SONAR_TOKEN" \
+          -e SONAR_USER_HOME="/usr/src/.sonar" \
           -v "$PWD":/usr/src \
-          -v "$PWD/.scannerwork":/usr/src/.scannerwork \
-          "sonarsource/sonar-scanner-cli:latest" \
+          "${{ inputs.scanner_image }}" \
           -Dsonar.projectKey="${{ inputs.project_key }}" \
           -Dsonar.projectName="${{ inputs.project_name }}" \
           -Dsonar.sources="${{ inputs.sonar_sources }}" \
           -Dsonar.projectBaseDir="/usr/src" \
           ${{ inputs.sonar_extra_args }}
 
-        # Verifica que el archivo del análisis exista en el bind-mount
-        if [ -f ".scannerwork/report-task.txt" ]; then
-          echo "==== report-task.txt ===="
-          cat ".scannerwork/report-task.txt"
-        else
-          echo "ERROR: No se generó .scannerwork/report-task.txt en $PWD"
-          exit 1
-        fi
-
-        # Copia a la raíz del workspace para que el Quality Gate lo encuentre
-        mkdir -p "$GITHUB_WORKSPACE/.scannerwork"
-        cp -f ".scannerwork/report-task.txt" "$GITHUB_WORKSPACE/.scannerwork/report-task.txt"
-
-
     - name: Quality Gate
-      if: ${{ inputs.sonar_extra_args == '' }} # ejecuta siempre si no se sobreescribe el gating
+      if: ${{ inputs.sonar_extra_args == '' }}
       uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
       env:
         SONAR_TOKEN: ${{ inputs.sonar_token }}
