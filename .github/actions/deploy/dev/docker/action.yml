@@ -43,7 +43,7 @@ runs:
     - name: Crear y Guardar Imagen Docker
       shell: bash
       run: |
-        docker build -f ${{ inputs.dockerfile_name }} -t ${{ inputs.image_name }}:{{ inputs.tag_image }} ${{ inputs.working-directory }}
+        docker build -f ${{ inputs.dockerfile_name }} -t ${{ inputs.image_name }}:${{ inputs.tag_image }} ${{ inputs.working-directory }}
         docker save -o ${{ inputs.target_directory }}/${{ inputs.target_file_name }} ${{ inputs.image_name }}:${{ inputs.tag_image}}
 
     - name: Desplegar Imagen en AWS por SSH
