@@ -42,6 +42,7 @@ runs:
         set -e
 
         mkdir -p ${{ github.workspace }}/k6-results
+        chmod 777 "${{ github.workspace }}/k6-results" || true
 
         echo "▶ Ejecutando k6 script: ${{ inputs.script_name }}"
         echo "▶ Base URL: ${{ inputs.base_url }}"
@@ -79,4 +80,4 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: k6-summary
-        path: k6-results/${{ inputs.summary_path }}
+        path: ./k6-results/${{ inputs.summary_path }}
