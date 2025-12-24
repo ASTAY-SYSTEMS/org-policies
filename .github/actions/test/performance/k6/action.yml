@@ -49,9 +49,15 @@ runs:
         EXTRA_ENVS=""
 
         if [ -n "${{ inputs.env_vars }}" ]; then
-          IFS=';' read -ra ENV_PAIRS <<< "${{ inputs.env_vars }}"
+          # normalizar separadores: aceptar comas o puntos y comas
+          ENV_RAW='${{ inputs.env_vars }}'
+          ENV_RAW="${ENV_RAW//,/;}"        # convertir comas a ;
+          IFS=';' read -ra ENV_PAIRS <<< "$ENV_RAW"
           for pair in "${ENV_PAIRS[@]}"; do
-            EXTRA_ENVS="$EXTRA_ENVS -e $pair"
+            pair_trim="$(echo "$pair" | xargs)"  # trim espacios
+            if [ -n "$pair_trim" ]; then
+              EXTRA_ENVS="$EXTRA_ENVS -e $pair_trim"
+            fi
           done
         fi
 
