@@ -1,0 +1,76 @@
+name: "K6 - Performance Test with K6"
+description: "Ejecuta pruebas de rendimiento con K6"
+
+inputs:
+  directory_path:
+    description: "Carpeta donde estan los scripts para K6"
+    required: true
+  script_name:
+    description: "Nombre del script k6 a ejecutar"
+    required: true
+
+  base_url:
+    description: "Base URL del API"
+    required: true
+
+  env_vars:
+    description: "Variables de entorno adicionales (KEY=VALUE;KEY2=VALUE2)"
+    required: false
+    default: ""
+
+  k6_image:
+    description: "Imagen Docker de k6"
+    required: false
+    default: "grafana/k6:0.49.0"
+
+  summary_export:
+    description: "Exportar resumen k6 (true | false)"
+    required: false
+    default: "false"
+
+  summary_path:
+    description: "Ruta del summary export"
+    required: false
+    default: "k6-summary.json"
+
+runs:
+  using: "composite"
+  steps:    
+    - name: Run k6 test
+      shell: bash
+      run: |
+        set -e
+
+        mkdir -p ${{ github.workspace }}/k6-results
+
+        echo "▶ Ejecutando k6 script: ${{ inputs.script_name }}"
+        echo "▶ Base URL: ${{ inputs.base_url }}"
+
+        EXTRA_ENVS=""
+
+        if [ -n "${{ inputs.env_vars }}" ]; then
+          IFS=';' read -ra ENV_PAIRS <<< "${{ inputs.env_vars }}"
+          for pair in "${ENV_PAIRS[@]}"; do
+            EXTRA_ENVS="$EXTRA_ENVS -e $pair"
+          done
+        fi
+
+        SUMMARY_FLAG=""
+        if [ "${{ inputs.summary_export }}" = "true" ]; then
+          SUMMARY_FLAG="--summary-export=/results/${{ inputs.summary_path }}"
+        fi
+
+        docker run --rm \
+          -e BASE_URL=${{ inputs.base_url }} \
+          $EXTRA_ENVS \
+          -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts \
+          -v ${{ github.workspace }}/k6-results:/results \
+          ${{ inputs.k6_image }} \
+          run /scripts/${{ inputs.script_name }} $SUMMARY_FLAG
+
+    - name: Upload k6 summary
+      if: ${{ inputs.summary_export == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: k6-summary
+        path: k6-results/${{ inputs.summary_path }}
