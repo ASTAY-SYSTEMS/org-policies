@@ -69,7 +69,7 @@ runs:
           SUMMARY_FLAG="--summary-export=/results/${{ inputs.summary_name }}.json"
           DASHBOARD_ENVS="-e K6_WEB_DASHBOARD=true \
                         -e K6_WEB_DASHBOARD_EXPORT=/results/${{ inputs.summary_name }}.html \
-                        -e K6_WEB_DASHBOARD_PERIOD=10 \
+                        -e K6_WEB_DASHBOARD_PERIOD=10s \
                         -e K6_WEB_DASHBOARD_PORT=-1"  # CI: desactiva puerto
         fi
 
