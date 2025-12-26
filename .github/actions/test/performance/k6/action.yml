@@ -28,10 +28,10 @@ inputs:
     required: false
     default: "false"
 
-  summary_path:
+  summary_name:
     description: "Ruta del summary export"
     required: false
-    default: "k6-summary.json"
+    default: "k6-summary"
 
 runs:
   using: "composite"
@@ -60,16 +60,26 @@ runs:
               EXTRA_ENVS="$EXTRA_ENVS -e $pair_trim"
             fi
           done
-        fi
+        fi        
 
+        
+        DASHBOARD_ENVS =""
         SUMMARY_FLAG=""
         if [ "${{ inputs.summary_export }}" = "true" ]; then
-          SUMMARY_FLAG="--summary-export=/results/${{ inputs.summary_path }}"
+          SUMMARY_FLAG="--summary-export=/results/${{ inputs.summary_name }}.json"
+          DASHBOARD_ENVS="-e K6_WEB_DASHBOARD=true \
+                        -e K6_WEB_DASHBOARD_EXPORT=/results/${{ inputs.summary_name }}.html \
+                        -e K6_WEB_DASHBOARD_PERIOD=10 \
+                        -e K6_WEB_DASHBOARD_PORT=-1"  # CI: desactiva puerto
         fi
+
+        
+        
 
         docker run --rm \
           -e BASE_URL=${{ inputs.base_url }} \
           $EXTRA_ENVS \
+          $DASHBOARD_ENVS \
           -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts \
           -v ${{ github.workspace }}/k6-results:/results \
           ${{ inputs.k6_image }} \
@@ -80,4 +90,4 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: k6-summary
-        path: ./k6-results/${{ inputs.summary_path }}
+        path: ./k6-results
