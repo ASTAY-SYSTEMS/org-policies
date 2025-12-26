@@ -4,11 +4,31 @@ description: "Ejecuta DAST con OWASP ZAP usando zap-baseline.py o zap-api-scan.p
 inputs:
   mode:
     description: "baseline | api"
-    required: false
-    default: "baseline"
+    required: true
+    default: "baseline"    
   target_url:
     description: "URL objetivo (baseline) o URL base del API"
     required: true
+  auth_login_url:
+    description: "URL de login para obtener token (opcional)"
+    required: false
+    default: ""
+  auth_login_method:
+    description: "Método HTTP para login (GET | POST)"
+    required: false
+    default: "POST"
+  auth_login_body:
+    description: "Body JSON para login (credenciales)"
+    required: false
+    default: ""
+  auth_login_headers:
+    description: "Headers adicionales para login"
+    required: false
+    default: "Content-Type: application/json;Accept: application/json;X-Client: ci-runner"
+  token_json_path:
+    description: "Ruta JSON para extraer token (jq)"
+    required: false
+    default: ".accessToken" # si la respuesta es: { "accessToken": "abc123", "user": { "id": 1 } }, .data.token si  { "data": { "token": "abc123" }, "status": "ok" } y .tokens[0].value si { "tokens": [ { "type": "bearer", "value": "abc123" } ] }
   zap_image:
     description: "Imagen Docker de ZAP"
     required: false
@@ -62,6 +82,49 @@ runs:
         set -e
         mkdir -p zap-reports
         chmod 777 zap-reports || true
+    
+    - name: Obtener token (opcional)
+      shell: bash
+      id: get_token
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.auth_login_url }}" ]; then
+          echo "Haciendo login en ${{ inputs.auth_login_url }} ..."
+          # Construir headers adicionales
+          HDRS=()
+          if [ -n "${{ inputs.auth_login_headers }}" ]; then
+            RAW="${{ inputs.auth_login_headers }}"
+            RAW="${RAW//,/;}"
+            IFS=';' read -ra KV <<< "$RAW"
+            for h in "${KV[@]}"; do
+              h_trim="$(echo "$h" | xargs)"
+              [ -n "$h_trim" ] && HDRS+=(-H "$h_trim")
+            done
+          fi
+          # Ejecutar login
+          if [ "${{ inputs.auth_login_method }}" = "POST" ]; then
+            RESP=$(curl -sS -f "${HDRS[@]}" -H "Content-Type: application/json" -X POST \
+              -d '${{ inputs.auth_login_body }}' \
+              "${{ inputs.auth_login_url }}")
+          else
+            RESP=$(curl -sS -f "${HDRS[@]}" "${{ inputs.auth_login_url }}")
+          fi
+          # Extraer token con jq
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq no encontrado, instalando..."
+            sudo apt-get update -y && sudo apt-get install -y jq
+          fi
+          TOKEN=$(echo "$RESP" | jq -r '${{ inputs.token_json_path }}')
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "ERROR: No se pudo extraer token con la ruta jq: ${{ inputs.token_json_path }}"
+            exit 2
+          fi
+          echo "TOKEN obtenido"
+          echo "bearer_token=$TOKEN" >> "$GITHUB_OUTPUT"
+        else
+          echo "No se configuró auth_login_url; se omitirá login."
+          echo "bearer_token=" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Ejecutar ZAP (baseline/api)
       shell: bash
