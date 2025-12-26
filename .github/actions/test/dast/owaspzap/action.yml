@@ -1,28 +1,40 @@
-name: "DAST - OWASP ZAP Baseline"
-description: "Ejecuta prueba DAST con OWASP ZAP (zap-baseline.py) via Docker"
+name: "DAST - OWASP ZAP (Baseline/API)"
+description: "Ejecuta DAST con OWASP ZAP usando zap-baseline.py o zap-api-scan.py via Docker"
 
 inputs:
+  mode:
+    description: "baseline | api"
+    required: false
+    default: "baseline"
   target_url:
-    description: "URL objetivo a escanear"
+    description: "URL objetivo (baseline) o URL base del API"
     required: true
   zap_image:
     description: "Imagen Docker de ZAP"
     required: false
-    default: "zaproxy/zap-stable" # alternativas: zaproxy/zap-weekly, ghcr.io/zaproxy/zap2docker-stable
+    default: "zaproxy/zap-stable"
+  openapi_url:
+    description: "URL del OpenAPI/Swagger (para mode=api)"
+    required: false
+    default: ""
+  openapi_file:
+    description: "Ruta local de OpenAPI (montada en /zap/wrk, para mode=api)"
+    required: false
+    default: ""
   rules_file:
-    description: "Ruta a archivo de reglas .ini para baseline (-c)"
+    description: "Archivo .ini de reglas (-c)"
     required: false
     default: ""
   report_name:
     description: "Nombre base del reporte"
     required: false
-    default: "zap-baseline"
+    default: "zap-report"
   timeout_minutes:
-    description: "Tiempo de espera (min) para el baseline (-m)"
+    description: "Tiempo de espera (-m)"
     required: false
     default: "10"
   include_regex:
-    description: "Patrón de inclusión (-i)"
+    description: "Patrón de inclusión (-i, baseline)"
     required: false
     default: ""
   exclude_regex:
@@ -30,11 +42,11 @@ inputs:
     required: false
     default: ""
   fail_on_warn:
-    description: "Fallar si hay alertas medianas/altas (-I para ignorar info-only)"
+    description: "Fallar en warn/med/high (-I)"
     required: false
     default: "true"
   additional_args:
-    description: "Flags extra para zap-baseline.py"
+    description: "Flags extra para los scripts"
     required: false
     default: ""
 
@@ -51,13 +63,16 @@ runs:
         mkdir -p zap-reports
         chmod 777 zap-reports || true
 
-    - name: Ejecutar ZAP Baseline
+    - name: Ejecutar ZAP (baseline/api)
       shell: bash
       run: |
         set -euo pipefail
 
-        TARGET="${{ inputs.target_url }}"
+        MODE="${{ inputs.mode }}"
         IMAGE="${{ inputs.zap_image }}"
+        TARGET="${{ inputs.target_url }}"
+        OPENAPI_URL="${{ inputs.openapi_url }}"
+        OPENAPI_FILE="${{ inputs.openapi_file }}"
         RULES="${{ inputs.rules_file }}"
         REPORT="${{ inputs.report_name }}"
         TIMEOUT="${{ inputs.timeout_minutes }}"
@@ -66,45 +81,65 @@ runs:
         FAIL_ON_WARN="${{ inputs.fail_on_warn }}"
         EXTRA="${{ inputs.additional_args }}"
 
-        BASE_CMD=(docker run --rm --network host \
-          -v "$PWD:/zap/wrk" \
-          "$IMAGE" \
-          zap-baseline.py \
-          -t "$TARGET" \
-          -m "$TIMEOUT" \
-          -r "/zap/wrk/zap-reports/${REPORT}.html" \
-          -J "/zap/wrk/zap-reports/${REPORT}.json" \
-          -x "/zap/wrk/zap-reports/${REPORT}.xml")
-
-        # Reglas .ini (opcional)
+        # Común: flags de fallo y reglas
+        COMMON_ARGS=()
         if [ -n "$RULES" ]; then
-          BASE_CMD+=(-c "/zap/wrk/$RULES")
+          COMMON_ARGS+=(-c "/zap/wrk/$RULES")
         fi
-
-        # Include/exclude (opcionales)
-        if [ -n "$INCLUDE" ]; then
-          BASE_CMD+=(-i "$INCLUDE")
-        fi
-        if [ -n "$EXCLUDE" ]; then
-          BASE_CMD+=(-x "$EXCLUDE")
-        fi
-
-        # Fallo por alertas (fail_on_warn=true => salida no 0 si hay alertas)
         if [ "$FAIL_ON_WARN" = "true" ]; then
-          BASE_CMD+=(-I) # ignora info, falla en warn/med/high
+          COMMON_ARGS+=(-I)
         fi
-
-        # Args extra
         if [ -n "$EXTRA" ]; then
           # shellcheck disable=SC2086
-          BASE_CMD+=($EXTRA)
+          COMMON_ARGS+=($EXTRA)
         fi
 
-        echo "Ejecutando: ${BASE_CMD[*]}"
-        "${BASE_CMD[@]}"
+        if [ "$MODE" = "api" ]; then
+          # Preferir URL de OpenAPI; si no, usar archivo montado
+          if [ -n "$OPENAPI_URL" ]; then
+            API_TARGET="$OPENAPI_URL"
+            FORMAT="openapi"
+          elif [ -n "$OPENAPI_FILE" ]; then
+            API_TARGET="/zap/wrk/$OPENAPI_FILE"
+            FORMAT="openapi"
+          else
+            echo "ERROR: mode=api requiere openapi_url u openapi_file"
+            exit 2
+          fi
+
+          docker run --rm --network host \
+            -v "$PWD:/zap/wrk" \
+            "$IMAGE" \
+            zap-api-scan.py \
+            -t "$API_TARGET" \
+            -f "$FORMAT" \
+            -m "$TIMEOUT" \
+            -r "/zap/wrk/zap-reports/${REPORT}.html" \
+            -J "/zap/wrk/zap-reports/${REPORT}.json" \
+            -x "/zap/wrk/zap-reports/${REPORT}.xml" \
+            "${COMMON_ARGS[@]}"
+
+        else
+          # baseline
+          BASE_ARGS=()
+          if [ -n "$INCLUDE" ]; then BASE_ARGS+=(-i "$INCLUDE"); fi
+          if [ -n "$EXCLUDE" ]; then BASE_ARGS+=(-x "$EXCLUDE"); fi
+
+          docker run --rm --network host \
+            -v "$PWD:/zap/wrk" \
+            "$IMAGE" \
+            zap-baseline.py \
+            -t "$TARGET" \
+            -m "$TIMEOUT" \
+            -r "/zap/wrk/zap-reports/${REPORT}.html" \
+            -J "/zap/wrk/zap-reports/${REPORT}.json" \
+            -x "/zap/wrk/zap-reports/${REPORT}.xml" \
+            "${BASE_ARGS[@]}" \
+            "${COMMON_ARGS[@]}"
+        fi
 
     - name: Publicar reportes (artifact)
       uses: actions/upload-artifact@v4
       with:
-        name: zap-baseline-reports
+        name: zap-dast-reports
         path: zap-reports
