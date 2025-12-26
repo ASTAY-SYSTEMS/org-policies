@@ -1,0 +1,110 @@
+name: "DAST - OWASP ZAP Baseline"
+description: "Ejecuta prueba DAST con OWASP ZAP (zap-baseline.py) via Docker"
+
+inputs:
+  target_url:
+    description: "URL objetivo a escanear"
+    required: true
+  zap_image:
+    description: "Imagen Docker de ZAP"
+    required: false
+    default: "zaproxy/zap-stable" # alternativas: zaproxy/zap-weekly, ghcr.io/zaproxy/zap2docker-stable
+  rules_file:
+    description: "Ruta a archivo de reglas .ini para baseline (-c)"
+    required: false
+    default: ""
+  report_name:
+    description: "Nombre base del reporte"
+    required: false
+    default: "zap-baseline"
+  timeout_minutes:
+    description: "Tiempo de espera (min) para el baseline (-m)"
+    required: false
+    default: "10"
+  include_regex:
+    description: "Patrón de inclusión (-i)"
+    required: false
+    default: ""
+  exclude_regex:
+    description: "Patrón de exclusión (-x)"
+    required: false
+    default: ""
+  fail_on_warn:
+    description: "Fallar si hay alertas medianas/altas (-I para ignorar info-only)"
+    required: false
+    default: "true"
+  additional_args:
+    description: "Flags extra para zap-baseline.py"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Preparar directorio de reportes
+      shell: bash
+      run: |
+        set -e
+        mkdir -p zap-reports
+        chmod 777 zap-reports || true
+
+    - name: Ejecutar ZAP Baseline
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        TARGET="${{ inputs.target_url }}"
+        IMAGE="${{ inputs.zap_image }}"
+        RULES="${{ inputs.rules_file }}"
+        REPORT="${{ inputs.report_name }}"
+        TIMEOUT="${{ inputs.timeout_minutes }}"
+        INCLUDE="${{ inputs.include_regex }}"
+        EXCLUDE="${{ inputs.exclude_regex }}"
+        FAIL_ON_WARN="${{ inputs.fail_on_warn }}"
+        EXTRA="${{ inputs.additional_args }}"
+
+        BASE_CMD=(docker run --rm --network host \
+          -v "$PWD:/zap/wrk" \
+          "$IMAGE" \
+          zap-baseline.py \
+          -t "$TARGET" \
+          -m "$TIMEOUT" \
+          -r "/zap/wrk/zap-reports/${REPORT}.html" \
+          -J "/zap/wrk/zap-reports/${REPORT}.json" \
+          -x "/zap/wrk/zap-reports/${REPORT}.xml")
+
+        # Reglas .ini (opcional)
+        if [ -n "$RULES" ]; then
+          BASE_CMD+=(-c "/zap/wrk/$RULES")
+        fi
+
+        # Include/exclude (opcionales)
+        if [ -n "$INCLUDE" ]; then
+          BASE_CMD+=(-i "$INCLUDE")
+        fi
+        if [ -n "$EXCLUDE" ]; then
+          BASE_CMD+=(-x "$EXCLUDE")
+        fi
+
+        # Fallo por alertas (fail_on_warn=true => salida no 0 si hay alertas)
+        if [ "$FAIL_ON_WARN" = "true" ]; then
+          BASE_CMD+=(-I) # ignora info, falla en warn/med/high
+        fi
+
+        # Args extra
+        if [ -n "$EXTRA" ]; then
+          # shellcheck disable=SC2086
+          BASE_CMD+=($EXTRA)
+        fi
+
+        echo "Ejecutando: ${BASE_CMD[*]}"
+        "${BASE_CMD[@]}"
+
+    - name: Publicar reportes (artifact)
+      uses: actions/upload-artifact@v4
+      with:
+        name: zap-baseline-reports
+        path: zap-reports
