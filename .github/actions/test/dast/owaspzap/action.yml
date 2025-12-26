@@ -143,18 +143,34 @@ runs:
         EXCLUDE="${{ inputs.exclude_regex }}"
         FAIL_ON_WARN="${{ inputs.fail_on_warn }}"
         EXTRA="${{ inputs.additional_args }}"
+        TOKEN="${{ steps.get_token.outputs.bearer_token }}"
 
         # Común: flags de fallo y reglas
         COMMON_ARGS=()
         if [ -n "$RULES" ]; then
           COMMON_ARGS+=(-c "/zap/wrk/$RULES")
         fi
+        
         if [ "$FAIL_ON_WARN" = "true" ]; then
           COMMON_ARGS+=(-I)
         fi
+        
         if [ -n "$EXTRA" ]; then
           # shellcheck disable=SC2086
           COMMON_ARGS+=($EXTRA)
+        fi
+
+        # Inyectar Authorization Bearer <token> en todas las requests usando replacer
+        ZAP_REPLACER=()
+        if [ -n "$TOKEN" ]; then
+          ZAP_REPLACER+=(
+            -z "-config replacer.full_list(0).description=AuthHeader"
+            -z "-config replacer.full_list(0).matchtype=REQ_HEADER"
+            -z "-config replacer.full_list(0).matchregex=false"
+            -z "-config replacer.full_list(0).matchstring=Authorization"
+            -z "-config replacer.full_list(0).replacement=Bearer ${TOKEN}"
+            -z "-config replacer.full_list(0).enabled=true"
+          )
         fi
 
         if [ "$MODE" = "api" ]; then
@@ -181,6 +197,7 @@ runs:
             -J "/zap/wrk/zap-reports/${REPORT}.json" \
             -x "/zap/wrk/zap-reports/${REPORT}.xml" \
             "${COMMON_ARGS[@]}"
+            "${ZAP_REPLACER[@]}"
 
         else
           # baseline
@@ -199,6 +216,7 @@ runs:
             -x "/zap/wrk/zap-reports/${REPORT}.xml" \
             "${BASE_ARGS[@]}" \
             "${COMMON_ARGS[@]}"
+            "${ZAP_REPLACER[@]}"
         fi
 
     - name: Publicar reportes (artifact)
