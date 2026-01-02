@@ -43,18 +43,7 @@ runs:
       run: |
         set -e
         mkdir -p ${{ github.workspace }}/k6-results
-        chmod 777 "${{ github.workspace }}/k6-results" || true
-
-        DASHBOARD_ENVS=""
-        SUMMARY_FLAG=""
-
-        if [ "${{ inputs.summary_export }}" = "true" ]; then 
-          SUMMARY_FLAG="--summary-export=/results/$name-$(basename $script).json" 
-          DASHBOARD_ENVS="-e K6_WEB_DASHBOARD=true \
-                          -e K6_WEB_DASHBOARD_EXPORT=/results/$name-$(basename $script).html \
-                          -e K6_WEB_DASHBOARD_PERIOD=10s \
-                          -e K6_WEB_DASHBOARD_PORT=-1" 
-        fi
+        chmod 777 "${{ github.workspace }}/k6-results" || true        
         
         for row in $(jq -c '.modules[]' ${{ inputs.config_path }}); do 
           name=$(echo $row | jq -r '.name') 
@@ -64,6 +53,16 @@ runs:
           for script in $scripts; do 
             env_line=$(echo $row | jq -r ".envs[$i]") 
             EXTRA_ENVS="" 
+            DASHBOARD_ENVS=""
+            SUMMARY_FLAG=""
+
+            if [ "${{ inputs.summary_export }}" = "true" ]; then 
+              SUMMARY_FLAG="--summary-export=/results/$name-$(basename $script).json" 
+              DASHBOARD_ENVS="-e K6_WEB_DASHBOARD=true \
+                              -e K6_WEB_DASHBOARD_EXPORT=/results/$name-$(basename $script).html \
+                              -e K6_WEB_DASHBOARD_PERIOD=10s \
+                              -e K6_WEB_DASHBOARD_PORT=-1" 
+            fi
             if [ -n "$env_line" ] && [ "$env_line" != "null" ]; then 
               IFS=';' read -ra ENV_PAIRS <<< "$env_line" 
               for pair in "${ENV_PAIRS[@]}"; do 
