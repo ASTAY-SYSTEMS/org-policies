@@ -1,93 +1,147 @@
 name: "K6 - Performance Test with K6"
 description: "Ejecuta pruebas de rendimiento con K6"
-
 inputs:
+  config_path:
+    description: "ruta del archivo config.json con los scripts k6"
+    required: true
+    default: "tests/k6/config.json"
   directory_path:
     description: "Carpeta donde estan los scripts para K6"
     required: true
-  script_name:
-    description: "Nombre del script k6 a ejecutar"
-    required: true
-
+  #script_name:
+  #  description: "Nombre del script k6 a ejecutar"
+  #  required: true
   base_url:
     description: "Base URL del API"
     required: true
-
-  env_vars:
-    description: "Variables de entorno adicionales (KEY=VALUE;KEY2=VALUE2)"
-    required: false
-    default: ""
-
+  #env_vars:
+  #  description: "Variables de entorno adicionales (KEY=VALUE;KEY2=VALUE2)"
+  #  required: false
+  #  default: ""
   k6_image:
     description: "Imagen Docker de k6"
     required: false
     default: "grafana/k6:0.49.0"
-
   summary_export:
     description: "Exportar resumen k6 (true | false)"
     required: false
     default: "false"
-
-  summary_name:
-    description: "Ruta del summary export"
-    required: false
-    default: "k6-summary"
+  #summary_name:
+  #  description: "Ruta del summary export"
+  #  required: false
+  #  default: "k6-summary"
 
 runs:
   using: "composite"
   steps:    
-    - name: Run k6 test
+    - name: Install jq 
+      shell: bash
+      run: sudo apt-get install -y jq
+    
+    - name: Run k6 scripts from config.json 
       shell: bash
       run: |
         set -e
-
         mkdir -p ${{ github.workspace }}/k6-results
         chmod 777 "${{ github.workspace }}/k6-results" || true
 
-        echo "▶ Ejecutando k6 script: ${{ inputs.script_name }}"
-        echo "▶ Base URL: ${{ inputs.base_url }}"
-
-        EXTRA_ENVS=""
-
-        if [ -n "${{ inputs.env_vars }}" ]; then
-          # normalizar separadores: aceptar comas o puntos y comas
-          ENV_RAW='${{ inputs.env_vars }}'
-          ENV_RAW="${ENV_RAW//,/;}"        # convertir comas a ;
-          IFS=';' read -ra ENV_PAIRS <<< "$ENV_RAW"
-          for pair in "${ENV_PAIRS[@]}"; do
-            pair_trim="$(echo "$pair" | xargs)"  # trim espacios
-            if [ -n "$pair_trim" ]; then
-              EXTRA_ENVS="$EXTRA_ENVS -e $pair_trim"
-            fi
-          done
-        fi        
-
-        
         DASHBOARD_ENVS=""
         SUMMARY_FLAG=""
-        if [ "${{ inputs.summary_export }}" = "true" ]; then
-          SUMMARY_FLAG="--summary-export=/results/${{ inputs.summary_name }}.json"
+
+        if [ "${{ inputs.summary_export }}" = "true" ]; then 
+          SUMMARY_FLAG="--summary-export=/results/$name-$(basename $script).json" 
           DASHBOARD_ENVS="-e K6_WEB_DASHBOARD=true \
-                        -e K6_WEB_DASHBOARD_EXPORT=/results/${{ inputs.summary_name }}.html \
-                        -e K6_WEB_DASHBOARD_PERIOD=10s \
-                        -e K6_WEB_DASHBOARD_PORT=-1"  # CI: desactiva puerto
+                          -e K6_WEB_DASHBOARD_EXPORT=/results/$name-$(basename $script).html \
+                          -e K6_WEB_DASHBOARD_PERIOD=10s \
+                          -e K6_WEB_DASHBOARD_PORT=-1" 
         fi
-
         
-        
+        for row in $(jq -c '.modules[]' ${{ inputs.config_path }}); do 
+          name=$(echo $row | jq -r '.name') 
+          scripts=$(echo $row | jq -r '.scripts[]') 
+          envs=$(echo $row | jq -r '.envs[]') 
+          i=0 
+          for script in $scripts; do 
+            env_line=$(echo $row | jq -r ".envs[$i]") 
+            EXTRA_ENVS="" 
+            if [ -n "$env_line" ] && [ "$env_line" != "null" ]; then 
+              IFS=';' read -ra ENV_PAIRS <<< "$env_line" 
+              for pair in "${ENV_PAIRS[@]}"; do 
+                pair_trim="$(echo "$pair" | xargs)" 
+                if [ -n "$pair_trim" ]; then 
+                  EXTRA_ENVS="$EXTRA_ENVS -e $pair_trim" 
+                fi 
+              done 
+            fi 
+            echo "▶ Ejecutando módulo $name script $script con envs: $env_line"
 
-        docker run --rm \
-          -e BASE_URL=${{ inputs.base_url }} \
-          $EXTRA_ENVS \
-          $DASHBOARD_ENVS \
-          -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts \
-          -v ${{ github.workspace }}/k6-results:/results \
-          ${{ inputs.k6_image }} \
-          run /scripts/${{ inputs.script_name }} $SUMMARY_FLAG
+            docker run --rm -i \
+              -e BASE_URL=${{ inputs.base_url }} \
+              $DASHBOARD_ENVS \
+              $EXTRA_ENVS \
+              -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts \
+              -v ${{ github.workspace }}/k6-results:/results \
+              ${{ inputs.k6_image }} \
+              run /scripts/$script $SUMMARY_FLAG
+            i=$((i+1)) 
+          done 
+        done
+
+
+            
+  
+  # - name: Run k6 test
+  #   shell: bash
+  #   run: |
+  #     set -e
+
+  #     mkdir -p ${{ github.workspace }}/k6-results
+  #     chmod 777 "${{ github.workspace }}/k6-results" || true
+
+  #     echo "▶ Ejecutando k6 script: ${{ inputs.script_name }}"
+  #     echo "▶ Base URL: ${{ inputs.base_url }}"
+
+  #     EXTRA_ENVS=""
+
+  #     if [ -n "${{ inputs.env_vars }}" ]; then
+  #       # normalizar separadores: aceptar comas o puntos y comas
+  #       ENV_RAW='${{ inputs.env_vars }}'
+  #       ENV_RAW="${ENV_RAW//,/;}"        # convertir comas a ;
+  #       IFS=';' read -ra ENV_PAIRS <<< "$ENV_RAW"
+  #       for pair in "${ENV_PAIRS[@]}"; do
+  #         pair_trim="$(echo "$pair" | xargs)"  # trim espacios
+  #         if [ -n "$pair_trim" ]; then
+  #           EXTRA_ENVS="$EXTRA_ENVS -e $pair_trim"
+  #         fi
+  #       done
+  #     fi        
+
+  #     
+  #     DASHBOARD_ENVS=""
+  #     SUMMARY_FLAG=""
+  #     if [ "${{ inputs.summary_export }}" = "true" ]; then
+  #       SUMMARY_FLAG="--summary-export=/results/${{ inputs.summary_name }}.json"
+  #       DASHBOARD_ENVS="-e K6_WEB_DASHBOARD=true \
+  #                     -e K6_WEB_DASHBOARD_EXPORT=/results/${{ inputs.summary_name }}.html \
+  #                     -e K6_WEB_DASHBOARD_PERIOD=10s \
+  #                     -e K6_WEB_DASHBOARD_PORT=-1"  # CI: desactiva puerto
+  #     fi
+
+  #     
+  #     
+
+  #     docker run --rm \
+  #       -e BASE_URL=${{ inputs.base_url }} \
+  #       $EXTRA_ENVS \
+  #       $DASHBOARD_ENVS \
+  #       -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts \
+  #       -v ${{ github.workspace }}/k6-results:/results \
+  #       ${{ inputs.k6_image }} \
+  #       run /scripts/${{ inputs.script_name }} $SUMMARY_FLAG
 
     - name: Upload k6 summary
       if: ${{ inputs.summary_export == 'true' }}
       uses: actions/upload-artifact@v4
       with:
         name: k6-summary
-        path: ./k6-results
+        path: ${{ github.workspace }}/k6-results/
