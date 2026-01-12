@@ -1,0 +1,93 @@
+{
+  "project_name": "ASTAY-PERFORMANCE-TESTING",
+  "settings": {
+    "default_project": "bambas",
+    "default_env": "qa",
+    "timeout": "5s"
+  },
+  "tenants": {
+    "bambas": {
+      "dev": { "baseUrl": "http://3.146.83.60:81", "wsUrl": "ws://3.146.83.60:81" },
+      "qa": { "baseUrl": "http://3.19.44.102:81", "wsUrl": "ws://3.146.83.60:81" }
+    },
+    "quellaveco": {
+      "dev": { "baseUrl": "http://13.58.211.131:7564", "wsUrl": "ws://13.58.211.131:7564" },
+      "qa": { "baseUrl": "http://13.58.211.131:7564", "wsUrl": "ws://13.58.211.131:7564" }
+    }
+  },
+  "endpoints": {
+    "auth": {
+      "login": {
+        "path": "/api/auth/login",
+        "folder": "auth/login/auth-post-login"
+      },
+      "verify": {
+        "path": "/api/auth/verify",
+        "folder": "auth/verify/auth-get-verify"
+      }
+    },
+    "bi": {
+      "buckets": { 
+        "path": "/api/buckets/GetBucketsToUnity", 
+        "folder": "bi/buckets/bi-get-getBucketsToUnity" },
+      "crusherData": { 
+        "path": "/api/plan/GetCrusherData", 
+        "folder": "bi/crusherData/bi-get-getCrusherData" },
+      "crusherForecasting": { 
+        "path": "/api/crusher-forecasting/GetAllCrushersByScenarioId", 
+        "folder": "bi/crusherForecasting/bi-get-getAllCrushersByScenarioId" }
+    },
+    "forecasting": {
+      "scenarios": {
+        "create": { 
+          "path": "/api/scenario-forecasting/CreateScenarioForecasting", 
+          "folder": "forecasting/scenario/forecasting-post-createScenarioForecasting" }
+      }
+    },
+    "processing": {
+      "plan": {
+        "byId": { 
+          "path": "/api/plan/GetPlanById", 
+          "folder": "processing/plan/processing-get-getPlanById" }
+      }
+    },
+    "rest": {
+      "routes": {
+        "latestRoutes": { 
+          "path": "/api/routes/GetLatestRoutes", 
+          "folder": "rest/routes/rest-get-getLatestRoutes" }
+      }
+    }
+  },
+  "websockets": {
+    "crusherLive": {
+      "biCrusher": { 
+        "path": "/ws/bi/crusher", 
+        "folder": "websockets/crusherLive/ws-biCrusher" }
+    },
+    "gps": {
+      "biGps": { 
+        "path": "/ws/bi/gps", 
+        "folder": "websockets/gps/ws-biGps" }
+    },
+    "notifications": {
+      "wsNotificationsForecasting": { 
+        "path": "/ws/notifications-forecasting", 
+        "folder": "websockets/notifications/ws-notificationsForecasting" }
+    }
+  },
+  "thresholds": {
+    "smoke": {
+      "http_req_duration": ["p(95)<1000"],
+      "http_req_failed": ["rate<0.01"]
+    },
+    "load": {
+      "http_req_duration": ["p(95)<2000"],
+      "http_req_failed": ["rate<0.05"]
+    },
+    "stress": {
+      "http_req_duration": ["p(95)<5000"],
+      "http_req_failed": ["rate<0.15"]
+    }
+  }
+}
