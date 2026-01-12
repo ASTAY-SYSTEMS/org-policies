@@ -1,8 +1,7 @@
 import { SharedArray } from 'k6/data';
 
 /* ====== Config ====== */
-export const config = JSON.parse(open('../config.json'));
-//export const config = JSON.parse(open(import.meta.resolve('../config.json')));
+export const config = JSON.parse(open('./org-policies/helpers/performance/config.json'));
 
 /* ====== Entorno ====== */
 export const PROJECT = (__ENV.PROJECT || config.settings?.default_project || 'bambas');
@@ -28,17 +27,14 @@ export function getDefaultHeaders() {
 
 /* ====== CSV loader ====== */
 export function loadCSV(serviceConfig) {
-  if (!serviceConfig?.folder) throw new Error('folder no definido');
+  // Construimos la ruta desde la raíz del Pipeline (Workspace)
+  const path = `./datatwin_varmicroservice/auth-microservice-data-twin/performance/k6/scripts/auth/login/auth-post-login/data/${__ENV.PROJECT}.csv`;
 
-  // Ruta relativa al script de ejecución (smoke.js)
-  const path = `../../../../services/${serviceConfig.folder}/data/${PROJECT}.csv`;
-
-  return new SharedArray(`CSV: ${serviceConfig.folder}`, () => {
+  return new SharedArray(`Data`, () => {
     try {
-      const content = open(path);
-      return csvToJson(content);
+      return csvToJson(open(path));
     } catch (e) {
-      console.error(`❌ Error ruta: ${path}`);
+      console.error(`❌ No se encontró el archivo en: ${path}`);
       throw e;
     }
   });
