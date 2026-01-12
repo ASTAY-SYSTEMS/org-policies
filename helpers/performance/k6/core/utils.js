@@ -1,7 +1,7 @@
 import { SharedArray } from 'k6/data';
 
 /* ====== Config ====== */
-export const config = JSON.parse(open('./org-policies/helpers/performance/config.json'));
+export const config = JSON.parse(open('./org-policies/helpers/performance/k6/config.json'));
 
 /* ====== Entorno ====== */
 export const PROJECT = (__ENV.PROJECT || config.settings?.default_project || 'bambas');
@@ -27,17 +27,12 @@ export function getDefaultHeaders() {
 
 /* ====== CSV loader ====== */
 export function loadCSV(serviceConfig) {
-  // Construimos la ruta desde la raíz del Pipeline (Workspace)
-  const path = `./datatwin_varmicroservice/auth-microservice-data-twin/performance/k6/scripts/auth/login/auth-post-login/data/${__ENV.PROJECT}.csv`;
-
-  return new SharedArray(`Data`, () => {
-    try {
-      return csvToJson(open(path));
-    } catch (e) {
-      console.error(`❌ No se encontró el archivo en: ${path}`);
-      throw e;
-    }
-  });
+    // Lo mismo para el CSV, usamos la ruta desde la raíz
+    const path = `./DataTwin_VarMicroservice/auth-microservice-data-twin/performance/k6/scripts/auth/login/auth-post-login/data/${__ENV.PROJECT}.csv`;
+    
+    return new SharedArray(`Data`, () => {
+        return csvToJson(open(path));
+    });
 }
 
 function csvToJson(csv) {
