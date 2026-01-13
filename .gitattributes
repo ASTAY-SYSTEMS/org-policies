@@ -1,0 +1,4 @@
+
+# Forzar LF en el repo
+*.js text eol=lf
+*.json text eol=lf
