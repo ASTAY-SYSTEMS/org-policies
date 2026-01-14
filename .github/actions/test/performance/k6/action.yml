@@ -80,6 +80,7 @@ runs:
             echo "▶ Ejecutando módulo $name script $script con envs: $env_line"
 
             docker run --rm -i \
+              --user $(id -u):$(id -g) \
               -e BASE_URL=${{ inputs.base_url }} \
               $DASHBOARD_ENVS \
               $EXTRA_ENVS \
