@@ -7,6 +7,9 @@ inputs:
     default: "tests/k6/config.json"
   directory_path:
     description: "Carpeta donde estan los scripts para K6"
+    required: true
+  directory_core_path:
+    description: "Carpeta donde esta el core de K6"
     required: true 
   base_url:
     description: "Base URL del API"
@@ -66,10 +69,11 @@ runs:
               -e BASE_URL=${{ inputs.base_url }} \
               $DASHBOARD_ENVS \
               $EXTRA_ENVS \
-              -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts \
+              -v ${{ github.workspace }}/${{ inputs.directory_path }}:/${{ inputs.directory_path }} \
+              -v ${{ github.workspace }}/${{ inputs.directory_core_path }}:/k6-core \
               -v ${{ github.workspace }}/k6-results:/results \
               ${{ inputs.k6_image }} \
-              run /scripts/$script $SUMMARY_FLAG
+              run /${{ inputs.directory_path }}/$script $SUMMARY_FLAG
             i=$((i+1)) 
           done 
         done
