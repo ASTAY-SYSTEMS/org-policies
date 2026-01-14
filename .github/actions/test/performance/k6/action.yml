@@ -30,26 +30,25 @@ runs:
       run: sudo apt-get install -y jq
 
     
-    - name: Inspect container volumes
-      shell: bash
-      run: |
-        docker run --rm -i \
-          --entrypoint sh \
-          -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts/${{ inputs.directory_path }} \
-          -v ${{ github.workspace }}/${{ inputs.directory_core_path }}:/k6-core \
-          -v ${{ github.workspace }}/k6-results:/results \
-          ${{ inputs.k6_image }} \
-          -lc "echo '📂 /scripts:' && ls -R /scripts && \
-              echo '📂 /k6-core:' && ls -R /k6-core && \
-              echo '📂 /results:' && ls -R /results"
+    #- name: Inspect container volumes
+    #  shell: bash
+    #  run: |
+    #    docker run --rm -i \
+    #      --entrypoint sh \
+    #      -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts/${{ inputs.directory_path }} \
+    #      -v ${{ github.workspace }}/${{ inputs.directory_core_path }}:/k6-core \
+    #      -v ${{ github.workspace }}/k6-results:/results \
+    #      ${{ inputs.k6_image }} \
+    #      -lc "echo '📂 /scripts:' && ls -R /scripts && \
+    #          echo '📂 /k6-core:' && ls -R /k6-core && \
+    #          echo '📂 /results:' && ls -R /results"
 
-    
+    #chmod 777 "${{ github.workspace }}/k6-results" || true        
     - name: Run k6 scripts from config.json 
       shell: bash
       run: |
         set -e
-        mkdir -p ${{ github.workspace }}/k6-results
-        chmod 777 "${{ github.workspace }}/k6-results" || true        
+        mkdir -p ${{ github.workspace }}/k6-results        
         
         for row in $(jq -c '.modules[]' ${{ inputs.config_path }}); do 
           name=$(echo $row | jq -r '.name') 
