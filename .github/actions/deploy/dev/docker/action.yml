@@ -11,12 +11,12 @@ inputs:
   target_file_name:
     description: "Nombre del archivo destino en el servidor AWS"
     required: true  
-  internal_port:
-    description: "Puerto interno del contenedor"
-    required: true
-  external_port:
-    description: "Puerto externo del contenedor"
-    required: true
+  #internal_port:
+  #  description: "Puerto interno del contenedor"
+  #  required: true
+  #external_port:
+  #  description: "Puerto externo del contenedor"
+  #  required: true
   host_target: 
     description: "Host de destino donde se desplegara la solucion"
     required: true
