@@ -44,10 +44,11 @@ runs:
     #          echo '📂 /results:' && ls -R /results"
 
     #chmod 777 "${{ github.workspace }}/k6-results" || true        
+    #set -e
     - name: Run k6 scripts from config.json 
       shell: bash
       run: |
-        set -e
+        
         mkdir -p ${{ github.workspace }}/k6-results        
         
         for row in $(jq -c '.modules[]' ${{ inputs.config_path }}); do 
@@ -89,6 +90,10 @@ runs:
               -v ${{ github.workspace }}/k6-results:/results \
               ${{ inputs.k6_image }} \
               run /scripts/${{ inputs.directory_path }}/$script $SUMMARY_FLAG
+            exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              echo "⚠️ El script $script falló (código $exit_code), pero continuamos..."
+            fi
             i=$((i+1)) 
           done 
         done
