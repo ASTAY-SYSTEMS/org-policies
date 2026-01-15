@@ -116,11 +116,11 @@ runs:
 
         # 7. Desplegar el contenedor en la instancia
         ssh -o StrictHostKeyChecking=no -i ${{ inputs.directory_pem }}/aws-key.pem ubuntu@${{ inputs.host_target }} "
-          docker compose -f ${{ inputs.target_directory }}/${{ inputs.dockercompose_name}} down ${{ inputs.service_name }} || true &&
+          docker compose -f ${{ inputs.directory_target }}/${{ inputs.dockercompose_name}} down ${{ inputs.service_name }} || true &&
           docker rm ${{ inputs.image_name }} || true &&
           docker rmi ${{ inputs.image_name }}:${{ inputs.tag_image }} || true &&
           docker load -i ${{ inputs.directory_image }}/$CARPETA/${{ inputs.target_file_name }} &&
-          docker compose -f ${{ inputs.target_directory }}/${{ inputs.dockercompose_name}} up -d ${{ inputs.service_name }} || true"
+          docker compose -f ${{ inputs.directory_target }}/${{ inputs.dockercompose_name}} up -d ${{ inputs.service_name }} || true"
 
         # 8. Eliminar la clave por seguridad
         rm -f ${{ inputs.directory_pem }}/aws-key.pem
