@@ -1,0 +1,58 @@
+name: "Next.js Build"
+description: "Instala dependencias, ejecuta tests opcionales y compila una app Next.js"
+
+inputs:
+  node_version:
+    description: "Node.js version"
+    required: false
+    default: "20"
+
+  working_directory:
+    description: "Directorio donde vive la app Next.js"
+    required: false
+    default: "."
+
+  run_tests:
+    description: "Run tests (true / false)"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    # Instala la versión de Node.js especificada
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node_version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+    
+    # Instala las dependencias del proyecto
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+      working-directory: ${{ inputs.working_directory }}
+
+    # Ejecuta los tests si se especifica
+    - name: Run tests
+      if: ${{ inputs.run_tests == 'true' }}
+      shell: bash
+      run: npm test
+      working-directory: ${{ inputs.working_directory }}
+
+    # Compila la aplicación Next.js
+    - name: Build Next.js
+      shell: bash
+      run: npm run build
+      working-directory: ${{ inputs.working_directory }}
+
+    # Sube lo compilado en el build como artefactos para pasos posteriores
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nextjs-build
+        path: |
+          ${{ inputs.working_directory }}/.next
+          ${{ inputs.working_directory }}/package.json
+          ${{ inputs.working_directory }}/package-lock.json
