@@ -10,10 +10,18 @@ inputs:
     required: true
   directory_core_path:
     description: "Carpeta donde esta el core de K6"
-    required: true 
+    required: true
   base_url:
     description: "Base URL del API"
     required: true
+  ws_url:
+    description: "Base WS URL (opcional)"
+    required: false
+    default: ""
+  overlay_path:
+    description: "Ruta al overlay JSON con endpoints (opcional, core v2)"
+    required: false
+    default: ""
   k6_image:
     description: "Imagen Docker de k6"
     required: false
@@ -24,80 +32,72 @@ inputs:
     default: "false"
 runs:
   using: "composite"
-  steps:    
-    - name: Install jq 
+  steps:
+    - name: Install jq
       shell: bash
       run: sudo apt-get install -y jq
 
-    
-    #- name: Inspect container volumes
-    #  shell: bash
-    #  run: |
-    #    docker run --rm -i \
-    #      --entrypoint sh \
-    #      -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts/${{ inputs.directory_path }} \
-    #      -v ${{ github.workspace }}/${{ inputs.directory_core_path }}:/k6-core \
-    #      -v ${{ github.workspace }}/k6-results:/results \
-    #      ${{ inputs.k6_image }} \
-    #      -lc "echo '📂 /scripts:' && ls -R /scripts && \
-    #          echo '📂 /k6-core:' && ls -R /k6-core && \
-    #          echo '📂 /results:' && ls -R /results"
-
-    #chmod 777 "${{ github.workspace }}/k6-results" || true        
-    #set -e
-    - name: Run k6 scripts from config.json 
+    - name: Run k6 scripts from config.json
       shell: bash
       run: |
-        
-        mkdir -p ${{ github.workspace }}/k6-results        
-        
-        for row in $(jq -c '.modules[]' ${{ inputs.config_path }}); do 
-          name=$(echo $row | jq -r '.name') 
-          scripts=$(echo $row | jq -r '.scripts[]') 
-          envs=$(echo $row | jq -r '.envs[]') 
-          i=0 
-          for script in $scripts; do 
-            env_line=$(echo $row | jq -r ".envs[$i]") 
-            EXTRA_ENVS="" 
+        mkdir -p ${{ github.workspace }}/k6-results
+
+        for row in $(jq -c '.modules[]' ${{ inputs.config_path }}); do
+          name=$(echo $row | jq -r '.name')
+          scripts=$(echo $row | jq -r '.scripts[]')
+          envs=$(echo $row | jq -r '.envs[]')
+          i=0
+          for script in $scripts; do
+            env_line=$(echo $row | jq -r ".envs[$i]")
+            EXTRA_ENVS=""
             DASHBOARD_ENVS=""
             SUMMARY_FLAG=""
+            OVERLAY_ENVS=""
+            OVERLAY_VOL=""
 
-            if [ "${{ inputs.summary_export }}" = "true" ]; then 
-              SUMMARY_FLAG="--summary-export=/results/$name-$(basename $script).json" 
+            if [ "${{ inputs.summary_export }}" = "true" ]; then
+              SUMMARY_FLAG="--summary-export=/results/$name-$(basename $script).json"
               DASHBOARD_ENVS="-e K6_WEB_DASHBOARD=true \
                               -e K6_WEB_DASHBOARD_EXPORT=/results/$name-$(basename $script).html \
                               -e K6_WEB_DASHBOARD_PERIOD=10s \
-                              -e K6_WEB_DASHBOARD_PORT=-1" 
+                              -e K6_WEB_DASHBOARD_PORT=-1"
             fi
-            if [ -n "$env_line" ] && [ "$env_line" != "null" ]; then 
-              IFS=';' read -ra ENV_PAIRS <<< "$env_line" 
-              for pair in "${ENV_PAIRS[@]}"; do 
-                pair_trim="$(echo "$pair" | xargs)" 
-                if [ -n "$pair_trim" ]; then 
-                  EXTRA_ENVS="$EXTRA_ENVS -e $pair_trim" 
-                fi 
-              done 
-            fi 
-            echo "▶ Ejecutando módulo $name script $script con envs: $env_line"
+            if [ -n "$env_line" ] && [ "$env_line" != "null" ]; then
+              IFS=';' read -ra ENV_PAIRS <<< "$env_line"
+              for pair in "${ENV_PAIRS[@]}"; do
+                pair_trim="$(echo "$pair" | xargs)"
+                if [ -n "$pair_trim" ]; then
+                  EXTRA_ENVS="$EXTRA_ENVS -e $pair_trim"
+                fi
+              done
+            fi
+            if [ -n "${{ inputs.overlay_path }}" ]; then
+              OVERLAY_ENVS="-e CONFIG_OVERLAY=/overlay/overlay.json"
+              OVERLAY_VOL="-v ${{ github.workspace }}/${{ inputs.overlay_path }}:/overlay/overlay.json"
+            fi
+            echo "Ejecutando modulo $name script $script con envs: $env_line"
 
+            exit_code=0
             docker run --rm -i \
               --user $(id -u):$(id -g) \
               -e BASE_URL=${{ inputs.base_url }} \
+              -e WS_URL=${{ inputs.ws_url }} \
+              $OVERLAY_ENVS \
               $DASHBOARD_ENVS \
               $EXTRA_ENVS \
               -v ${{ github.workspace }}/${{ inputs.directory_path }}:/scripts/${{ inputs.directory_path }} \
               -v ${{ github.workspace }}/${{ inputs.directory_core_path }}:/k6-core \
+              $OVERLAY_VOL \
               -v ${{ github.workspace }}/k6-results:/results \
               ${{ inputs.k6_image }} \
-              run /scripts/${{ inputs.directory_path }}/$script $SUMMARY_FLAG || true
-            exit_code=$?
+              run /scripts/${{ inputs.directory_path }}/$script $SUMMARY_FLAG || exit_code=$?
             if [ $exit_code -ne 0 ]; then
-              echo "⚠️ El script $script falló (código $exit_code), pero continuamos..."
+              echo "El script $script fallo (codigo $exit_code), pero continuamos..."
             fi
-            i=$((i+1)) 
-          done 
+            i=$((i+1))
+          done
         done
-        
+
     - name: Upload k6 summary
       if: ${{ inputs.summary_export == 'true' }}
       uses: actions/upload-artifact@v4
